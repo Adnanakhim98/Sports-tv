@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>Live Sports App with Dark Mode & JSON</title>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/shaka-player@latest/dist/shaka-player.compiled.js"></script>
+
+<style>
+  body {
+    margin: 0; font-family: Arial, sans-serif;
+    background: #f0f0f0; color: #111;
+    transition: background 0.3s, color 0.3s;
+  }
+  body.dark {
+    background: #121212; color: #eee;
+  }
+  .header {
+    padding: 16px; text-align: center;
+    font-size: 24px; font-weight: bold;
+    background: linear-gradient(to right, #ff004f, #6c00ff);
+    color: white; user-select: none;
+  }
+  .theme-toggle {
+    position: fixed; top: 16px; right: 16px;
+    background: #222; color: #fff; border: none;
+    padding: 8px 12px; border-radius: 5px; cursor: pointer;
+    z-index: 1000;
+    transition: background 0.3s;
+  }
+  .theme-toggle:hover {
+    background: #ff004f;
+  }
+  .tabs {
+    display: flex; justify-content: center; gap: 15px;
+    background: #ddd; padding: 10px 0;
+    user-select: none;
+    flex-wrap: wrap;
+  }
+  body.dark .tabs {
+    background: #222;
+  }
+  .tabs div {
+    cursor: pointer; padding: 8px 16px;
+    border-bottom: 3px solid transparent;
+    font-weight: 600; transition: border-color 0.3s;
+  }
+  .tabs .active {
+    border-color: #ff004f;
+    color: #ff004f;
+  }
+  .match-section {
+    display: none; padding: 12px;
+    max-width: 800px; margin: 0 auto 40px auto;
+  }
+  .match-section.active {
+    display: block;
+  }
+  .match-card {
+    background: #fff; color: #111;
+    border-radius: 10px; margin-bottom: 12px;
+    padding: 12px; box-shadow: 0 0 8px rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: box-shadow 0.3s;
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 15px;
+  }
+  body.dark .match-card {
+    background: #1c1c1c; color: #eee;
+    box-shadow: 0 0 12px #440044;
+  }
+  .match-card:hover {
+    box-shadow: 0 0 15px #ff004f;
+  }
+  .team {
+    text-align: center; flex: 1 1 90px;
+  }
+  .team img {
+    width: 55px; height: 55px; border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #ff004f;
+    transition: transform 0.3s;
+  }
+  .team-name {
+    margin-top: 6px;
+    font-weight: 600;
+    font-size: 14px;
+  }
+  .vs-text {
+    font-weight: bold;
+    font-size: 18px;
+    flex: 0 0 40px;
+    text-align: center;
+    color: #ff004f;
+    user-select: none;
+  }
+  .live-status {
+    font-weight: bold;
+    color: red;
+    margin-left: auto;
+    user-select: none;
+    animation: flash 1.2s infinite;
+  }
+  @keyframes flash {
+    0%, 100% {opacity: 1;}
+    50% {opacity: 0;}
+  }
+  .timer {
+    margin-left: auto;
+    font-size: 14px;
+    color: #666;
+    user-select: none;
+  }
+  body.dark .timer {
+    color: #aaa;
+  }
+  .video-area {
+    max-width: 800px; margin: 0 auto 40px auto;
+    display: none;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .video-area.active {
+    display: flex;
+  }
+  video {
+    width: 100%;
+    height: 360px;
+    background: black;
+    border-radius: 10px;
+  }
+  .server-buttons {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .server-buttons button {
+    background: #444;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.3s;
+    user-select: none;
+  }
+  .server-buttons button.active {
+    background: #ff004f;
+  }
+  .server-buttons button:hover:not(.active) {
+    background: #660033;
+  }
+  @media (max-width: 480px) {
+    .team img {
+      width: 40px; height: 40px;
+    }
+    video {
+      height: 200px;
+    }
+  }
+</style>
+
+</head>
+<body>
+
+  <button class="theme-toggle" id="themeToggle">Dark Mode</button>
+  <div class="header">🏆 Live Sports Hub</div>
+
+  <div class="tabs" id="tabsContainer">
+    <div class="active" data-tab="all">All</div>
+    <div data-tab="football">Football</div>
+    <div data-tab="cricket">Cricket</div>
+    <div data-tab="upcoming">Upcoming</div>
+  </div>
+
+  <div id="videoArea" class="video-area">
+    <h3 id="matchTitle">Match Title</h3>
+    <video id="videoElement" controls muted playsinline></video>
+    <div class="server-buttons" id="serverButtons"></div>
+  </div>
+
+  <div id="all" class="match-section active"></div>
+  <div id="football" class="match-section"></div>
+  <div id="cricket" class="match-section"></div>
+  <div id="upcoming" class="match-section"></div>
+
+<script>
+  const matchesDataURL = 'matches.json'; // আপনার JSON ফাইলের নাম
+
+  const body = document.body;
+  const themeToggle = document.getElementById('themeToggle');
+
+  // Dark mode toggle
+  themeToggle.onclick = () => {
+    if (body.classList.contains('dark')) {
+      body.classList.remove('dark');
+      themeToggle.textContent = 'Dark Mode';
+      localStorage.setItem('theme', 'light');
+    } else {
+      body.classList.add('dark');
+      themeToggle.textContent = 'Light Mode';
+      localStorage.setItem('theme', 'dark');
+    }
+  };
+
+  // Load theme from localStorage on page load
+  if(localStorage.getItem('theme') === 'dark'){
+    body.classList.add('dark');
+    themeToggle.textContent = 'Light Mode';
+  }
+
+  const videoArea = document.getElementById('videoArea');
+  const videoElement = document.getElementById('videoElement');
+  const matchTitle = document.getElementById('matchTitle');
+  const serverButtons = document.getElementById('serverButtons');
+
+  let hls = null;
+  let shakaPlayer = null;
+
+  // Cleanup video players
+  function cleanupPlayers() {
+    if(hls){
+      hls.destroy();
+      hls = null;
+    }
+    if(shakaPlayer){
+      shakaPlayer.destroy();
+      shakaPlayer = null;
+    }
+    videoElement.pause();
+    videoElement.removeAttribute('src');
+    videoElement.load();
+  }
+
+  // Setup HLS player
+  function setupHls(url) {
+    if(Hls.isSupported()){
+      hls = new Hls();
+      hls.attachMedia(videoElement);
+      hls.loadSource(url);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        videoElement.play().catch(() => {});
+      });
+    } else if(videoElement.canPlayType('application/vnd.apple.mpegurl')){
+      videoElement.src = url;
+      videoElement.addEventListener('loadedmetadata', () => {
+        videoElement.play().catch(() => {});
+      });
+    } else {
+      alert('HLS not supported');
+    }
+  }
+
+  // Setup Shaka Player for DASH & DRM
+  async function setupShaka(url, keyId, key) {
+    shakaPlayer = new shaka.Player(videoElement);
+    if(keyId && key){
+      shakaPlayer.configure({ drm: { clearKeys: { [keyId]: key } } });
+    }
+    try {
+      await shakaPlayer.load(url);
+      videoElement.play().catch(() => {});
+    } catch (e) {
+      console.error('Shaka player error:', e);
+    }
+  }
+
+  // Load stream based on extension & DRM info
+  function loadStream(url, drm) {
+    cleanupPlayers();
+    if(url.endsWith('.mpd')){
+      const [keyId, key] = drm?.drmLicense?.split(':') || [null,null];
+      setupShaka(url, keyId, key);
+    } else if(url.endsWith('.m3u8')){
+      setupHls(url);
+    } else {
+      videoElement.src = url;
+      videoElement.play().catch(() => {});
+    }
+  }
+
+  // Prepare video player with multiple servers
+  function prepareVideoPlayer(title, servers, drmArray=[]) {
+    matchTitle.textContent = title;
+    videoArea.classList.add('active');
+
+    loadStream(servers[0], drmArray[0]);
+
+    serverButtons.innerHTML = '';
+    servers.forEach((url, idx) => {
+      const btn = document.createElement('button');
+      btn.textContent = 'Server ' + (idx+1);
+      if(idx === 0) btn.classList.add('active');
+      btn.onclick = () => {
+        document.querySelectorAll('.server-buttons button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        loadStream(url, drmArray[idx]);
+      };
+      serverButtons.appendChild(btn);
+    });
+  }
+
+  // Tab switching logic
+  const tabsContainer = document.getElementById('tabsContainer');
+  const sections = {
+    all: document.getElementById('all'),
+    football: document.getElementById('football'),
+    cricket: document.getElementById('cricket'),
+    upcoming: document.getElementById('upcoming')
+  };
+
+  tabsContainer.addEventListener('click', (e) => {
+    if(e.target.dataset.tab){
+      document.querySelectorAll('.tabs div').forEach(tab => tab.classList.remove('active'));
+      e.target.classList.add('active');
+      Object.values(sections).forEach(sec => sec.classList.remove('active'));
+      sections[e.target.dataset.tab].classList.add('active');
+    }
+  });
+
+  // Match timer & live status update
+  function updateMatchTimers() {
+    const now = new Date();
+    document.querySelectorAll('.match-card').forEach(card => {
+      const start = new Date(card.dataset.start);
+      const end = new Date(card.dataset.end);
+      const liveElem = card.querySelector('.live-status');
+      const timerElem = card.querySelector('.timer');
+      if(now < start){
+        liveElem.textContent = '';
+        const diff = start - now;
+        const h = Math.floor(diff/3600000);
+        const m = Math.floor((diff%3600000)/60000);
+        const s = Math.floor((diff%60000)/1000);
+        timerElem.textContent = `Starts in ${h}h ${m}m ${s}s`;
+        card.style.display = 'flex';
+      } else if(now >= start && now <= end){
+        liveElem.textContent = '● LIVE';
+        timerElem.textContent = '';
+        card.style.display = 'flex';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  }
+  setInterval(updateMatchTimers, 1000);
+
+  // Load matches from JSON and render cards
+  function renderMatchCard(match, container) {
+    const card = document.createElement('div');
+    card.className = 'match-card';
+    card.dataset.start = match.start;
+    card.dataset.end = match.end;
+    card.onclick = () => prepareVideoPlayer(match.title, match.servers, match.drm);
+
+    card.innerHTML = `
+      <div class="team">
+        <img src="${match.team1.logo}" alt="${match.team1.name}" />
+        <div class="team-name">${match.team1.name}</div>
+      </div>
+      <div class="vs-text">VS</div>
+      <div class="team">
+        <img src="${match.team2.logo}" alt="${match.team2.name}" />
+        <div class="team-name">${match.team2.name}</div>
+      </div>
+      <div class="live-status"></div>
+      <div class="timer"></div>
+    `;
+    container.appendChild(card);
+  }
+
+  async function loadMatches() {
+    try {
+      const res = await fetch(matchesDataURL);
+      if(!res.ok) throw new Error('Failed to load matches JSON');
+      const data = await res.json();
+
+      // Clear containers first
+      Object.values(sections).forEach(sec => sec.innerHTML = '');
+
+      data.football.forEach(m => renderMatchCard(m, sections.football));
+      data.cricket.forEach(m => renderMatchCard(m, sections.cricket));
+      data.upcoming.forEach(m => renderMatchCard(m, sections.upcoming));
+
+      // "All" tab = football + cricket
+      [...data.football, ...data.cricket].forEach(m => renderMatchCard(m, sections.all));
+
+      updateMatchTimers();
+    } catch (e) {
+      console.error('Error loading matches:', e);
+    }
+  }
+
+  loadMatches();
+</script>
+
+</body>
+</html>
