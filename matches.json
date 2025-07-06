@@ -1,0 +1,45 @@
+{
+  "football": [
+    {
+      "title": "FIFA Club Cup 2025",
+      "start": "2025-07-05T14:00:00Z",
+      "end": "2025-07-05T17:00:00Z",
+      "team1": { "name": "River Plate", "logo": "https://i.postimg.cc/KYfzdntv/download-9.png" },
+      "team2": { "name": "Inter Milan", "logo": "https://i.postimg.cc/k4549ByN/download-8.png" },
+      "servers": [
+        "https://d3o3cim6uzorb4.cloudfront.net/out/v1/f683685242b549f48ea8a5171e3e993a/index.m3u8"
+      ],
+      "drm": [{}]
+    }
+  ],
+  "cricket": [
+    {
+      "title": "Bangladesh Tour of Sri Lanka 2025",
+      "start": "2025-07-06T12:00:00Z",
+      "end": "2025-07-06T15:00:00Z",
+      "team1": { "name": "Bangladesh", "logo": "https://i.postimg.cc/P5h1gsHB/bangladesh.png" },
+      "team2": { "name": "Sri Lanka", "logo": "https://i.postimg.cc/zvKLf5GX/circle-2.png" },
+      "servers": [
+        "https://tataplay.slivcdn.com/hls/live/2011747/TEN1HD/master.m3u8",
+        "https://ottb.live.cf.ww.aiv-cdn.net/lhr-nitro/live/clients/dash/enc/lsdasbvglv/out/v1/bb548a3626cd4708afbb94a58d71dce9/cenc.mpd"
+      ],
+      "drm": [
+        {},
+        { "drmLicense": "4e993aa8c1f295f8b94e8e9e6f6d0bfe:86a1ed6e96caab8eb1009fe530d2cf4f" }
+      ]
+    }
+  ],
+  "upcoming": [
+    {
+      "title": "UEFA Champions League Final",
+      "start": "2025-08-01T18:00:00Z",
+      "end": "2025-08-01T21:00:00Z",
+      "team1": { "name": "Manchester City", "logo": "https://upload.wikimedia.org/wikipedia/en/e/eb/Manchester_City_FC_badge.svg" },
+      "team2": { "name": "Chelsea", "logo": "https://upload.wikimedia.org/wikipedia/en/c/c2/Chelsea_FC.svg" },
+      "servers": [
+        "https://example.com/champions/stream.m3u8"
+      ],
+      "drm": [{}]
+    }
+  ]
+}
